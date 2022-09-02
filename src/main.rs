@@ -3,6 +3,7 @@ use std::error::Error;
 use std::io::{ErrorKind, Read, Write};
 use std::net::TcpListener;
 use std::process::exit;
+use anyhow::Context;
 
 use hostname_resolution_server::*;
 
@@ -18,7 +19,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let addr = format!("127.0.0.1:{port}");
     // set up server parsing input port
-    let listener = TcpListener::bind(addr)?;
+    let listener = TcpListener::bind(addr).context("Failed to bind to an address")?;
 
     // set up storage
     let mut host_handler = HostnameHandler::new();

@@ -57,10 +57,19 @@ impl HttpResponse {
             ..Default::default()
         }
     }
+
+    pub fn empty_ok() -> Self {
+        HttpResponse {
+            version: "HTTP/1.1".into(),
+            status: 200,
+            reason: "OK".into(),
+            ..Default::default()
+        }
+    }
 }
 
 fn parse_http_request(request: &str) -> Result<HttpRequest> {
-    let lines: Vec<&str> = request.split("\r\n").collect(); // only split crlf, not \n
+    let lines: Vec<&str> = request.split("\r\n").collect();
     if lines.is_empty() {
         bail!("Unable to parse HTTP Requst: Empty")
     }
@@ -165,7 +174,9 @@ impl HostnameHandler {
 
     pub fn handle_request(&mut self, parsed_request: &HttpRequest) -> HttpResponse {
         println!("Received request:\n{parsed_request:?}");
-        println!("{}", String::from_utf8_lossy(&parsed_request.content));
+        if !parsed_request.content.is_empty() {
+            println!("  with body: {}", String::from_utf8_lossy(&parsed_request.content));
+        }
         // need to parse out the hostname in the request
         // done either via query parameters or body parameters
         let query_params = parse_query_params(&parsed_request.uri);
@@ -202,7 +213,7 @@ impl HostnameHandler {
                 self.handle_delete(hostname)
             }
         };
-
+        println!("==== internal state is now: {:?}\n", self.hosts_to_hashes);
         result
     }
 
@@ -214,13 +225,10 @@ impl HostnameHandler {
                     ("content-type".into(), "text/plain".into()),
                     ("content-length".into(), value.len().to_string()),
                 ];
-                HttpResponse {
-                    version: "HTTP/1.1".into(),
-                    status: 200,
-                    reason: "OK".into(),
-                    headers,
-                    content: value.as_bytes().to_vec(),
-                }
+                let mut res = HttpResponse::empty_ok();
+                res.headers.extend(headers);
+                res.content.extend(value.as_bytes());
+                res
             }
             None => HttpResponse::not_found(),
         }
@@ -228,22 +236,17 @@ impl HostnameHandler {
 
     fn handle_post(&mut self, hostname: String, host_value: String) -> HttpResponse {
         self.hosts_to_hashes.insert(hostname, host_value);
-        println!("==== internal state is now: {:?}", self.hosts_to_hashes);
-        HttpResponse {
-            version: "HTTP/1.1".into(),
-            status: 200,
-            reason: "OK".into(),
-            headers: vec![],
-            content: vec![],
-        }
+        HttpResponse::empty_ok()
     }
 
-    fn handle_delete(&mut self, _hostname: &str) -> HttpResponse {
+    fn handle_delete(&mut self, hostname: &str) -> HttpResponse {
         // there seem to be security issues here
         // need to store more data than the current model allows to verify
         // that it is indeed the original host requesting to delete their entry
         // and not someone else
-        unimplemented!()
+        // TODO consider security concerns
+        self.hosts_to_hashes.remove(hostname);
+        HttpResponse::empty_ok()
     }
 }
 
