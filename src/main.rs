@@ -1,12 +1,12 @@
 use std::env;
 use std::error::Error;
-use std::io::{Read, Write, ErrorKind};
-use std::net::{TcpListener};
+use std::io::{ErrorKind, Read, Write};
+use std::net::TcpListener;
 use std::process::exit;
 
 use hostname_resolution_server::*;
 
-
+#[allow(unreachable_code)] // looping forever is intended
 fn main() -> Result<(), Box<dyn Error>> {
     let args = env::args().collect::<Vec<String>>();
 
@@ -26,15 +26,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     // loop accepting connections forever
     let mut buf: [u8; 256] = [0; 256];
     loop {
-        let mut socket = match listener.accept() {
-            Ok((socket, addr)) => {
-                socket
-            }
+        let (mut socket, addr) = match listener.accept() {
+            Ok((socket, addr)) => (socket, addr),
             Err(e) => {
                 eprintln!("{e:?}");
-                continue
+                continue;
             }
         };
+        println!("Accepted Client Connection from {addr}");
         let mut request = String::new();
         let mut read_success = true;
         while !request.contains("\r\n\r\n") {
@@ -42,7 +41,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Ok(bytes_read) => bytes_read,
                 Err(e) => match e.kind() {
                     ErrorKind::Interrupted => continue,
-                    _ => { read_success = false; break }
+                    _ => {
+                        read_success = false;
+                        break;
+                    }
                 },
             };
             if bytes_read == 0 {
@@ -58,8 +60,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // parse and handle request
         let mut req_parsed = match HttpRequest::try_from(request_heading.to_string()) {
-            Err(e) => { eprintln!("{e:?}"); continue },
-            Ok(s) => s
+            Err(e) => {
+                eprintln!("{e:?}");
+                continue;
+            }
+            Ok(s) => s,
         };
         // yep, this feels bad, but it must be done
         // looking for two CRLF in a row only works for requests without bodies (thanks 333 :|)
@@ -73,7 +78,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                     Ok(bytes_read) => bytes_read,
                     Err(e) => match e.kind() {
                         ErrorKind::Interrupted => continue,
-                        _ => { read_success = false; break }
+                        _ => {
+                            read_success = false;
+                            break;
+                        }
                     },
                 };
                 if bytes_read == 0 {
@@ -86,20 +94,18 @@ fn main() -> Result<(), Box<dyn Error>> {
                 continue;
             }
             let content_bytes = request_rest.as_bytes();
-            req_parsed.content.extend_from_slice(&content_bytes[0..byte_count]);
+            req_parsed
+                .content
+                .extend_from_slice(&content_bytes[0..byte_count]);
         }
         let res = host_handler.handle_request(&req_parsed);
         let res_bytes: Vec<u8> = res.into();
 
-        match socket.write_all(&res_bytes) {
-            Err(e) => { eprintln!("{e:?}"); continue }
-            _ => ()
+        if let Err(e) = socket.write_all(&res_bytes) {
+            eprintln!("Error on writing to client: {e:?}");
+            continue;
         }
     }
 
     Ok(())
-}
-
-fn escape_escapes(source: &String) -> String {
-    source.replace("\n", "\\n").replace("\r", "\\r")
 }
