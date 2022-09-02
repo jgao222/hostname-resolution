@@ -9,7 +9,6 @@ use hostname_resolution_server::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = env::args().collect::<Vec<String>>();
-    // println!("args are {:?}", args);
 
     if args.len() < 2 {
         eprintln!("Usage: ./hostname_resolution_server [PORT]");
@@ -29,7 +28,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     loop {
         let mut socket = match listener.accept() {
             Ok((socket, addr)) => {
-                println!("{addr:?}");
                 socket
             }
             Err(e) => {
@@ -40,7 +38,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut request = String::new();
         let mut read_success = true;
         while !request.contains("\r\n\r\n") {
-            println!("{}", escape_escapes(&request));
             let bytes_read = match socket.read(&mut buf) {
                 Ok(bytes_read) => bytes_read,
                 Err(e) => match e.kind() {
@@ -53,13 +50,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                 break;
             }
             request.push_str(&String::from_utf8_lossy(&buf[0..bytes_read]));
-            println!("Two CRLF exist: {:?}", request.find("\r\n\r\n"))
         }
-        println!("{}", escape_escapes(&request));
         if !read_success {
             continue;
         }
-        let (request_heading, mut request_rest) = request.rsplit_once("\r\n\r\n").unwrap();
+        let (request_heading, request_rest) = request.rsplit_once("\r\n\r\n").unwrap();
 
         // parse and handle request
         let mut req_parsed = match HttpRequest::try_from(request_heading.to_string()) {

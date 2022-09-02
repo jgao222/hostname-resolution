@@ -71,7 +71,6 @@ fn parse_http_request(request: &String) -> Result<HttpRequest> {
     let mut idx = 1;
     while idx < lines.len() && !lines[idx].starts_with("\n") {
         let mut key_value = lines[idx].split(":");
-        // println!("{key_value:?}");
         let key = key_value.next().ok_or(anyhow!("Bad header line"))?;
         let value = key_value.next().ok_or(anyhow!("Bad header line"))?.trim();  // leading and trailing whitespace is optional for header fields
         headers.insert(key.to_string().to_lowercase(), value.to_string());
@@ -81,7 +80,6 @@ fn parse_http_request(request: &String) -> Result<HttpRequest> {
 
     // now process the body
     let mut content = Vec::new();
-    // hopefully this takes just the remaining lines
 
     for line in lines[idx..].iter() {
         content.extend(line.bytes());
@@ -143,17 +141,16 @@ impl HostnameHandler {
     }
 
     pub fn handle_request(&mut self, parsed_request: &HttpRequest) -> HttpResponse {
-        println!("{parsed_request:?}");
+        println!("Received request:\n{parsed_request:?}");
         println!("{}", String::from_utf8_lossy(&parsed_request.content));
         // need to parse out the hostname in the request
-        // uh, query parameters?
+        // done either via query parameters or body parameters
         let query_params = parse_query_params(&parsed_request.uri);
         let form_params = if let HttpRequestMethod::POST = parsed_request.method {
             parse_form_params(parsed_request)
         } else {
             HashMap::new()
         };
-        println!("post params: {form_params:?}");
 
         let result = match parsed_request.method {
             HttpRequestMethod::GET => {
