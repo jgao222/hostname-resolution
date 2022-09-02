@@ -175,7 +175,10 @@ impl HostnameHandler {
     pub fn handle_request(&mut self, parsed_request: &HttpRequest) -> HttpResponse {
         println!("Received request:\n{parsed_request:?}");
         if !parsed_request.content.is_empty() {
-            println!("  with body: {}", String::from_utf8_lossy(&parsed_request.content));
+            println!(
+                "- with body: {}",
+                String::from_utf8_lossy(&parsed_request.content)
+            );
         }
         // need to parse out the hostname in the request
         // done either via query parameters or body parameters

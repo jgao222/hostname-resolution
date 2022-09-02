@@ -1,9 +1,10 @@
+use anyhow::Context;
 use std::env;
 use std::error::Error;
 use std::io::{ErrorKind, Read, Write};
 use std::net::TcpListener;
 use std::process::exit;
-use anyhow::Context;
+use local_ip_address::list_afinet_netifas;
 
 use hostname_resolution_server::*;
 
@@ -12,14 +13,24 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = env::args().collect::<Vec<String>>();
 
     if args.len() < 2 {
-        eprintln!("Usage: ./hostname_resolution_server [PORT]");
+        eprintln!("Usage: {} [PORT]", args[0]);
         exit(1)
     }
     let port = args[1].clone();
 
-    let addr = format!("127.0.0.1:{port}");
+    // use external crate to get available outwards facing addresses
+    let network_interfaces = list_afinet_netifas().unwrap();
+    println!("Found these addresses available:");
+    for (name, ip) in network_interfaces {
+        println!("{}: {}", name, ip);
+    }
+
+    // not sure how to try the listed addresses, but apparently 0.0.0.0 requests
+    // the OS to host on some address - works on attu, just does localhost on windows
+    let addr = format!("0.0.0.0:{port}");
     // set up server parsing input port
     let listener = TcpListener::bind(addr).context("Failed to bind to an address")?;
+    println!("Successfully bound to {}", listener.local_addr()?);
 
     // set up storage
     let mut host_handler = HostnameHandler::new();
